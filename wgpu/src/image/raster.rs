@@ -1,4 +1,5 @@
-use crate::image::atlas::{self, Atlas};
+use crate::image::atlas::WgpuBackend;
+use iced_graphics::atlas::{self, Atlas};
 use iced_native::image;
 use std::collections::{HashMap, HashSet};
 
@@ -96,14 +97,20 @@ impl Cache {
         handle: &image::Handle,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
-        atlas: &mut Atlas,
+        atlas: &mut Atlas<WgpuBackend>,
     ) -> Option<&atlas::Entry> {
         let memory = self.load(handle);
 
         if let Memory::Host(image) = memory {
             let (width, height) = image.dimensions();
 
-            let entry = atlas.upload(width, height, &image, device, encoder)?;
+            let entry =
+                atlas.entry_for(width, height, |backend, layers, amount| {
+                    backend.grow(layers, amount, device, encoder)
+                })?;
+            atlas
+                .backend_mut()
+                .upload(width, height, &image, &entry, device, encoder);
 
             *memory = Memory::Device(entry);
         }
@@ -115,7 +122,7 @@ impl Cache {
         }
     }
 
-    pub fn trim(&mut self, atlas: &mut Atlas) {
+    pub fn trim<B: atlas::Backend>(&mut self, atlas: &mut Atlas<B>) {
         let hits = &self.hits;
 
         self.map.retain(|k, memory| {

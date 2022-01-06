@@ -19,6 +19,7 @@ mod primitive;
 mod transformation;
 mod viewport;
 
+pub mod atlas;
 pub mod backend;
 pub mod font;
 pub mod layer;

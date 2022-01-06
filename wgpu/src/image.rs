@@ -7,7 +7,7 @@ mod raster;
 mod vector;
 
 use crate::Transformation;
-use atlas::Atlas;
+use iced_graphics::atlas::Atlas;
 
 use iced_graphics::layer;
 use iced_native::Rectangle;
@@ -21,6 +21,8 @@ use iced_native::image;
 
 #[cfg(feature = "svg")]
 use iced_native::svg;
+
+use self::atlas::WgpuBackend;
 
 #[derive(Debug)]
 pub struct Pipeline {
@@ -38,7 +40,7 @@ pub struct Pipeline {
     texture: wgpu::BindGroup,
     texture_version: usize,
     texture_layout: wgpu::BindGroupLayout,
-    texture_atlas: Atlas,
+    texture_atlas: Atlas<WgpuBackend>,
 }
 
 impl Pipeline {
@@ -228,7 +230,7 @@ impl Pipeline {
             mapped_at_creation: false,
         });
 
-        let texture_atlas = Atlas::new(device);
+        let texture_atlas = Atlas::new(WgpuBackend::new(device));
 
         let texture = device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("iced_wgpu::image texture atlas bind group"),
@@ -499,14 +501,14 @@ struct Uniforms {
 fn add_instances(
     image_position: [f32; 2],
     image_size: [f32; 2],
-    entry: &atlas::Entry,
+    entry: &iced_graphics::atlas::Entry,
     instances: &mut Vec<Instance>,
 ) {
     match entry {
-        atlas::Entry::Contiguous(allocation) => {
+        iced_graphics::atlas::Entry::Contiguous(allocation) => {
             add_instance(image_position, image_size, allocation, instances);
         }
-        atlas::Entry::Fragmented { fragments, size } => {
+        iced_graphics::atlas::Entry::Fragmented { fragments, size } => {
             let scaling_x = image_size[0] / size.0 as f32;
             let scaling_y = image_size[1] / size.1 as f32;
 
@@ -537,7 +539,7 @@ fn add_instances(
 fn add_instance(
     position: [f32; 2],
     size: [f32; 2],
-    allocation: &atlas::Allocation,
+    allocation: &iced_graphics::atlas::Allocation,
     instances: &mut Vec<Instance>,
 ) {
     let (x, y) = allocation.position();
@@ -548,12 +550,12 @@ fn add_instance(
         _position: position,
         _size: size,
         _position_in_atlas: [
-            (x as f32 + 0.5) / atlas::SIZE as f32,
-            (y as f32 + 0.5) / atlas::SIZE as f32,
+            (x as f32 + 0.5) / iced_graphics::atlas::SIZE as f32,
+            (y as f32 + 0.5) / iced_graphics::atlas::SIZE as f32,
         ],
         _size_in_atlas: [
-            (width as f32 - 1.0) / atlas::SIZE as f32,
-            (height as f32 - 1.0) / atlas::SIZE as f32,
+            (width as f32 - 1.0) / iced_graphics::atlas::SIZE as f32,
+            (height as f32 - 1.0) / iced_graphics::atlas::SIZE as f32,
         ],
         _layer: layer as u32,
     };

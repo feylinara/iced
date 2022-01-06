@@ -1,6 +1,8 @@
-use crate::image::atlas::{self, Atlas};
+use iced_graphics::atlas::{self, Atlas};
 
 use iced_native::svg;
+
+use crate::image::atlas::WgpuBackend;
 
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -80,7 +82,7 @@ impl Cache {
         scale: f32,
         device: &wgpu::Device,
         encoder: &mut wgpu::CommandEncoder,
-        texture_atlas: &mut Atlas,
+        texture_atlas: &mut Atlas<WgpuBackend>,
     ) -> Option<&atlas::Entry> {
         let id = handle.id();
 
@@ -125,13 +127,22 @@ impl Cache {
                 let mut rgba = img.take();
                 rgba.chunks_exact_mut(4).for_each(|rgba| rgba.swap(0, 2));
 
-                let allocation = texture_atlas.upload(
+                let allocation = texture_atlas.entry_for(
                     width,
                     height,
-                    bytemuck::cast_slice(rgba.as_slice()),
+                    |backend, layers, amount| {
+                        backend.grow(layers, amount, device, encoder)
+                    },
+                )?;
+                texture_atlas.backend_mut().upload(
+                    width,
+                    height,
+                    &rgba,
+                    &allocation,
                     device,
                     encoder,
-                )?;
+                );
+
                 log::debug!("allocating {} {}x{}", id, width, height);
 
                 let _ = self.svg_hits.insert(id);
@@ -144,7 +155,7 @@ impl Cache {
         }
     }
 
-    pub fn trim(&mut self, atlas: &mut Atlas) {
+    pub fn trim<B: atlas::Backend>(&mut self, atlas: &mut Atlas<B>) {
         let svg_hits = &self.svg_hits;
         let rasterized_hits = &self.rasterized_hits;
 
